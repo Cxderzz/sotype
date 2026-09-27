@@ -1,0 +1,35 @@
+# Maintainer: Soren Kelly <sorenjameskelly@gmail.com>
+pkgname=sotype
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A full-screen terminal typing test in the style of monkeytype"
+arch=('x86_64' 'aarch64')
+url="https://github.com/<user>/sotype"
+license=('MIT')
+depends=('dotnet-runtime')
+makedepends=('dotnet-sdk')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/<user>/sotype/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP') # fill in at release time
+
+build() {
+  cd "$pkgname-$pkgver"
+  export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+  # No -r <RID>: an architecture-neutral, framework-dependent publish. Arch's own
+  # dotnet-runtime package covers the runtime, so one build here serves both arches
+  # listed above, keeps the installed package small, and avoids bundling a redundant
+  # copy of the .NET runtime that a self-contained publish would otherwise ship.
+  dotnet publish src/Sotype.Console/Sotype.Console.csproj \
+    -c Release \
+    --self-contained false \
+    -o "$srcdir/publish"
+}
+
+package() {
+  install -d "$pkgdir/usr/lib/sotype"
+  cp -r "$srcdir/publish/"* "$pkgdir/usr/lib/sotype/"
+  install -Dm755 /dev/stdin "$pkgdir/usr/bin/sotype" <<'EOF'
+#!/bin/sh
+exec dotnet /usr/lib/sotype/Sotype.Console.dll "$@"
+EOF
+  install -Dm644 "$pkgname-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

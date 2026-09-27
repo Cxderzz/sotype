@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sotype.Console/Sotype.Console.csproj" />
+    <Project Path="src/Sotype.Domain/Sotype.Domain.csproj" />
+    <Project Path="src/Sotype.Infrastructure/Sotype.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sotype.Console.Tests/Sotype.Console.Tests.csproj" />
+    <Project Path="tests/Sotype.Domain.Tests/Sotype.Domain.Tests.csproj" />
+    <Project Path="tests/Sotype.Infrastructure.Tests/Sotype.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- RootNamespace deliberately NOT "Sotype.Console": this project uses System.Console
+         constantly (ReadKey, WindowWidth, CursorVisible, ...), and a C# namespace segment
+         literally named "Console" shadows System.Console for unqualified `Console.*` calls
+         inside it. AssemblyName stays Sotype.Console to match the project folder/PKGBUILD. -->
+    <RootNamespace>Sotype.Cli</RootNamespace>
+    <AssemblyName>Sotype.Console</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sotype.Domain\Sotype.Domain.csproj" />
+    <ProjectReference Include="..\Sotype.Infrastructure\Sotype.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" Version="0.57.2" />
+  </ItemGroup>
+
+</Project>
