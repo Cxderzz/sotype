@@ -3,8 +3,7 @@ using Sotype.Domain;
 namespace Sotype.Cli.Input;
 
 /// <summary>
-/// Translates a keypress into either a mutation on the active <see cref="TypingSession"/>
-/// or a screen-level <see cref="InputEvent"/> the render loop must react to
+/// Applies a keypress to the session, or reports the screen-level action it asks for.
 /// </summary>
 public static class InputReader
 {
@@ -29,6 +28,7 @@ public static class InputReader
             default:
                 if (!char.IsControl(key.KeyChar))
                     session.TypeCharacter(key.KeyChar);
+
                 return InputEvent.None;
         }
     }
