@@ -3,12 +3,8 @@ using Sotype.Domain;
 namespace Sotype.Cli.Input;
 
 /// <summary>
-/// Translates one raw keypress into either a mutation on the active <see cref="TypingSession"/>
-/// (space commits the current word, backspace corrects it, anything else is typed as a
-/// character) or a screen-level <see cref="InputEvent"/> the render loop must react to
-/// (Tab restarts, Escape returns to the menu). Depends only on <see cref="ConsoleKeyInfo"/>
-/// and the domain — it never touches <see cref="Console"/> itself, so it's unit-testable
-/// without a real terminal.
+/// Translates a keypress into either a mutation on the active <see cref="TypingSession"/>
+/// or a screen-level <see cref="InputEvent"/> the render loop must react to
 /// </summary>
 public static class InputReader
 {

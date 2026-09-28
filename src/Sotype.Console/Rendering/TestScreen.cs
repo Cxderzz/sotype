@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Sotype.Cli.Input;
 using Sotype.Cli.Theming;
 using Sotype.Domain;
@@ -6,43 +7,49 @@ using Spectre.Console.Rendering;
 
 namespace Sotype.Cli.Rendering;
 
-/// <summary>
-/// Drives one running <see cref="TypingSession"/>: an <c>AnsiConsole.Live</c> display refreshed
-/// by our own loop, since Spectre has no live-typing input primitive of its own. Polls for a
-/// keypress, forwards it through <see cref="InputReader"/>, ticks the session's clock, and
-/// watches for a terminal resize — redrawing whenever any of those actually changed something.
-/// </summary>
 public static class TestScreen
 {
-    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(200);
-    private static readonly TimeSpan IdlePollDelay = TimeSpan.FromMilliseconds(15);
+    private static readonly TimeSpan FrameInterval = TimeSpan.FromMilliseconds(16); // ~60fps
+    private static readonly TimeSpan BlinkAfterIdle = TimeSpan.FromMilliseconds(900);
+    private static readonly TimeSpan BlinkHalfPeriod = TimeSpan.FromMilliseconds(530);
 
-    /// <returns>
-    /// <see cref="InputEvent.Restart"/> or <see cref="InputEvent.BackToMenu"/> if the user asked
-    /// for one mid-test, otherwise <see cref="InputEvent.None"/> once the session finished on its own.
-    /// </returns>
+    // Some hellish code to support repainting the entire terminal at once to reduce screen tearing
+    private const string BeginSynchronizedUpdate = "\x1b[?2026h";
+    private const string EndSynchronizedUpdate = "\x1b[?2026l";
+
     public static async Task<InputEvent> RunAsync(TypingSession session, Theme theme)
     {
-        // Each call starts a brand new Live display with no knowledge of whatever the previous
-        // test screen last rendered — without this, a fresh Tab-restart would render the new
-        // panel below/alongside the old one instead of replacing it.
         AnsiConsole.Clear();
 
         var outcome = InputEvent.None;
-        var lastTickAt = DateTime.UtcNow;
+        var caret = new CaretAnimator();
+        var clock = Stopwatch.StartNew();
+
+        var lastFrameAt = TimeSpan.Zero;
+        var lastInputAt = TimeSpan.Zero;
         var lastWidth = Console.WindowWidth;
         var lastHeight = Console.WindowHeight;
+        var lastHeader = HeaderLabel(session);
+        var lastCaretVisible = true;
 
-        await AnsiConsole.Live(BuildRenderable(session, theme))
+        var (window, _) = AdvanceLayout(session, caret, TimeSpan.Zero);
+
+        await AnsiConsole.Live(BuildRenderable(session, theme, window, caret, showCaret: true))
             .AutoClear(false)
             .Overflow(VerticalOverflow.Crop)
             .StartAsync(async ctx =>
             {
                 while (!session.IsFinished)
                 {
+                    var frameStartedAt = clock.Elapsed;
+                    var delta = frameStartedAt - lastFrameAt;
+                    lastFrameAt = frameStartedAt;
+
                     var needsRedraw = false;
 
-                    if (Console.KeyAvailable)
+                    // a fast typist (or a held key) can deliver several keystrokes within one frame, and leaving the rest queued
+                    // would make input lag further behind the longer the burst ran.
+                    while (Console.KeyAvailable)
                     {
                         var signal = InputReader.Dispatch(Console.ReadKey(intercept: true), session);
                         if (signal != InputEvent.None)
@@ -51,6 +58,7 @@ public static class TestScreen
                             return;
                         }
 
+                        lastInputAt = frameStartedAt;
                         needsRedraw = true;
                     }
 
@@ -63,38 +71,100 @@ public static class TestScreen
                         needsRedraw = true;
                     }
 
-                    if (DateTime.UtcNow - lastTickAt > TickInterval)
+                    // Skipped entirely on a frame where nothing can have moved: the caret only
+                    // ever retargets in response to input, so a test sitting idle re-wraps
+                    // nothing and costs no more than the keypress poll itself.
+                    if (needsRedraw || caret.IsAnimating)
                     {
-                        lastTickAt = DateTime.UtcNow;
+                        bool caretMoved;
+                        (window, caretMoved) = AdvanceLayout(session, caret, delta);
+                        needsRedraw |= caretMoved;
+                    }
+
+                    var header = HeaderLabel(session);
+                    if (header != lastHeader)
+                    {
+                        lastHeader = header;
+                        needsRedraw = true;
+                    }
+
+                    var caretVisible = IsCaretVisible(frameStartedAt - lastInputAt, caret.IsAnimating);
+                    if (caretVisible != lastCaretVisible)
+                    {
+                        lastCaretVisible = caretVisible;
                         needsRedraw = true;
                     }
 
                     if (needsRedraw)
-                    {
-                        ctx.UpdateTarget(BuildRenderable(session, theme));
-                        ctx.Refresh();
-                    }
-                    else
-                    {
-                        await Task.Delay(IdlePollDelay);
-                    }
+                        Draw(ctx, BuildRenderable(session, theme, window, caret, caretVisible));
+
+                    var frameCost = clock.Elapsed - frameStartedAt;
+                    if (frameCost < FrameInterval)
+                        await Task.Delay(FrameInterval - frameCost);
                 }
 
-                ctx.UpdateTarget(BuildRenderable(session, theme));
-                ctx.Refresh();
+                Draw(ctx, BuildRenderable(session, theme, window, caret, showCaret: true));
             });
 
         return outcome;
     }
 
-    private static IRenderable BuildRenderable(TypingSession session, Theme theme)
+    /// <summary>
+    /// Re-wraps the word list, works out where the caret belongs, and gives the animator its
+    /// chance to move toward it.
+    /// </summary>
+    /// <remarks>
+    /// Wrapped from the full word list every time (index 0 onward), not a slice around the
+    /// current word: a slice's boundaries shift by one word on every commit, and re-wrapping from
+    /// a different starting point can reassign words to different lines even though nothing about
+    /// them changed — visible as words jumping around while typing. Wrapping is monotonic
+    /// (appending words to the end never changes how earlier ones were grouped), so this stays
+    /// stable, and at a few hundred words it's computationally trivial even once a frame.
+    /// </remarks>
+    private static (VisibleWindow Window, bool CaretMoved) AdvanceLayout(
+        TypingSession session, CaretAnimator caret, TimeSpan delta)
     {
         var availableWidth = Math.Max(20, Console.WindowWidth - 8);
 
+        var lines = LineWrapper.WrapIntoLines(session.Words, availableWidth);
+        var target = LineWrapper.LocateCaret(lines, session.CurrentWord);
+        var caretMoved = caret.Advance(target, delta);
+
+        return (LineWrapper.SelectVisibleWindow(lines, target.Line), caretMoved);
+    }
+
+    private static bool IsCaretVisible(TimeSpan idleFor, bool caretIsAnimating)
+    {
+        if (caretIsAnimating || idleFor < BlinkAfterIdle)
+            return true;
+
+        return (idleFor - BlinkAfterIdle).Ticks / BlinkHalfPeriod.Ticks % 2 == 0;
+    }
+
+    private static void Draw(LiveDisplayContext ctx, IRenderable renderable)
+    {
+        ctx.UpdateTarget(renderable);
+
+        if (!AnsiConsole.Profile.Capabilities.Ansi)
+        {
+            ctx.Refresh();
+            return;
+        }
+
+        var writer = AnsiConsole.Profile.Out.Writer;
+        writer.Write(BeginSynchronizedUpdate);
+        ctx.Refresh();
+        writer.Write(EndSynchronizedUpdate);
+        writer.Flush();
+    }
+
+    private static IRenderable BuildRenderable(
+        TypingSession session, Theme theme, VisibleWindow window, CaretAnimator caret, bool showCaret)
+    {
         var content = new Rows(
-            BuildHeader(session, theme),
+            new Markup($"[{theme.Accent} bold]{HeaderLabel(session)}[/]"),
             new Text(string.Empty),
-            BuildWordsDisplay(session, theme, availableWidth),
+            BuildWordsDisplay(theme, window, caret, showCaret),
             new Text(string.Empty),
             new Markup("[grey58]tab[/] restart    [grey58]esc[/] menu"));
 
@@ -104,29 +174,23 @@ public static class TestScreen
             .Expand();
     }
 
-    private static IRenderable BuildHeader(TypingSession session, Theme theme)
+    private static string HeaderLabel(TypingSession session) => session.Mode == TestMode.Time
+        ? $"{Math.Max(0, (int)Math.Ceiling((session.Configuration.Duration!.Value - session.Elapsed).TotalSeconds))}s"
+        : $"{Math.Min(session.CurrentWordIndex + 1, session.Words.Count)}/{session.Words.Count}";
+
+    private static IRenderable BuildWordsDisplay(
+        Theme theme, VisibleWindow window, CaretAnimator caret, bool showCaret)
     {
-        var label = session.Mode == TestMode.Time
-            ? $"{Math.Max(0, (int)Math.Ceiling((session.Configuration.Duration!.Value - session.Elapsed).TotalSeconds))}s"
-            : $"{Math.Min(session.CurrentWordIndex + 1, session.Words.Count)}/{session.Words.Count}";
+        var lines = new List<IRenderable>(window.Lines.Count);
 
-        return new Markup($"[{theme.Accent} bold]{label}[/]");
-    }
+        for (var i = 0; i < window.Lines.Count; i++)
+        {
+            var caretColumn = showCaret && window.StartLine + i == caret.CurrentLine
+                ? caret.Column
+                : (double?)null;
 
-    private static IRenderable BuildWordsDisplay(TypingSession session, Theme theme, int availableWidth)
-    {
-        // Wrapped from the full word list every time (index 0 onward), not a slice around the
-        // current word: a slice's boundaries shift by one word on every commit, and re-wrapping
-        // from a different starting point can reassign words to different lines even though
-        // nothing about them changed — visible as words jumping around while typing. Wrapping
-        // is monotonic (appending words to the end never changes how earlier ones were grouped),
-        // so this stays stable, and at a few hundred words it's computationally trivial anyway.
-        var wrapped = LineWrapper.WrapIntoLines(session.Words, availableWidth);
-        var visible = LineWrapper.SelectVisibleWindow(wrapped, session.CurrentWord);
-
-        var lines = visible
-            .Select(line => (IRenderable)new Markup(MarkupBuilder.RenderLine(line, session.CurrentWord, theme)))
-            .ToList();
+            lines.Add(new Markup(MarkupBuilder.RenderLine(window.Lines[i], theme, caretColumn)));
+        }
 
         return new Rows(lines);
     }

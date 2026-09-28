@@ -7,10 +7,6 @@ using Sotype.Domain.Words;
 
 namespace Sotype.Cli.App;
 
-/// <summary>
-/// Orchestrates the screen flow: Menu → Test → Results → (restart | back to menu | quit).
-/// The composition root (<c>Program.cs</c>) wires this up with the real infrastructure adapters.
-/// </summary>
 public sealed class SotypeApp(
     IWordListProvider wordListProvider,
     IHistoryRepository historyRepository,
@@ -37,7 +33,7 @@ public sealed class SotypeApp(
                 }
 
                 if (testOutcome == InputEvent.Restart)
-                    continue; // fresh session, same configuration and theme
+                    continue;
 
                 var result = session.Result;
                 var previousBest = GetPreviousBestWpm(configuration);

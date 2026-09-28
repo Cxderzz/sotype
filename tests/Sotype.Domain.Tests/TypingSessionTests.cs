@@ -1,5 +1,4 @@
 using NSubstitute;
-using Sotype.Domain;
 using Sotype.Domain.Words;
 
 namespace Sotype.Domain.Tests;

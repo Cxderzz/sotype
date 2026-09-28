@@ -1,8 +1,8 @@
 # sotype
 
 A full-screen terminal typing test in the style of [monkeytype](https://monkeytype.com):
-live per-character coloring, timed and word-count modes, themes, and run history — all
-in your terminal.
+live per-character coloring, a smooth caret that glides between characters at sub-cell
+resolution, timed and word-count modes, themes, and run history while all in your terminal.
 
 ## Running from source
 
@@ -24,21 +24,13 @@ dotnet test
 
 ## Architecture
 
-- `Sotype.Domain` — the typing-test rules themselves (`TypingSession`, the aggregate root;
-  `Word`, `TestResult`, and other value objects; the WPM/accuracy formulas). No dependency
-  on the console or any I/O — fully unit-testable in isolation.
-- `Sotype.Infrastructure` — implements the domain's repository/provider interfaces: the
-  embedded word list, and JSON-file-backed history and preferences.
-- `Sotype.Console` — the terminal UI: Spectre.Console rendering, raw keystroke handling,
-  and the alternate-screen-buffer lifecycle. The composition root (`Program.cs`) wires
-  everything together.
+- `Sotype.Domain`: the domain layer, totally independent of any runtime logic
+- `Sotype.Infrastructure`: implementation of domain level interfaces for things like word lists
+- `Sotype.Console`: The UI layer, runs as a console app
 
 ## Packaging
 
-An Arch Linux `PKGBUILD` is at [`packaging/PKGBUILD`](packaging/PKGBUILD) — a
-framework-dependent build (depends on `dotnet-runtime`) that publishes
-`src/Sotype.Console`. Its `url`/`source` fields are placeholders until this repo has a
-tagged release to build from.
+Packaging is a work in progress. There is a dummy PKGBUILD for Arch Linux that needs heavy refinement.
 
 ## License
 
