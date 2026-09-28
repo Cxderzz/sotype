@@ -4,6 +4,10 @@ A full-screen terminal typing test in the style of [monkeytype](https://monkeyty
 live per-character coloring, a smooth caret that glides between characters at sub-cell
 resolution, timed and word-count modes, themes, and run history while all in your terminal.
 
+## Screenshots
+
+![sotype running a 10 word test](media/sotype.gif)
+
 ## Running from source
 
 Requires the [.NET 10 SDK](https://dotnet.microsoft.com/).
