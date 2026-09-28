@@ -34,7 +34,13 @@ dotnet test
 
 ## Packaging
 
-Packaging is a work in progress. There is a dummy PKGBUILD for Arch Linux that needs heavy refinement.
+Pushing a `v*` tag (e.g. `git tag v0.1.0 && git push origin v0.1.0`) runs the release
+workflow, which builds an Arch Linux package from [`packaging/PKGBUILD`](packaging/PKGBUILD)
+and attaches it to a GitHub release. Install it with:
+
+```sh
+sudo pacman -U sotype-<version>-1-x86_64.pkg.tar.zst
+```
 
 ## License
 
