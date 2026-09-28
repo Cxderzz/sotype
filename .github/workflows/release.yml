@@ -15,7 +15,7 @@ permissions:
 jobs:
   arch-package:
     name: Build Arch Linux package
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     container: archlinux:base-devel
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
@@ -68,3 +68,7 @@ jobs:
           else
             gh release create "$TAG" build/*.pkg.tar.zst --title "sotype $TAG" --generate-notes --verify-tag
           fi
+
+      - name: Clean workspace
+        if: always()
+        run: find "$GITHUB_WORKSPACE" -mindepth 1 -delete
