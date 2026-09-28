@@ -3,9 +3,11 @@ using Sotype.Cli.Theming;
 using Sotype.Domain;
 using Spectre.Console;
 
-namespace Sotype.Cli.Rendering;
+namespace Sotype.Cli.Screens;
 
-/// <summary>The post-test screen: final stats, a personal-best comparison, and the next action.</summary>
+/// <summary>
+/// Shows the finished test's stats and waits for the next action.
+/// </summary>
 public static class ResultsScreen
 {
     public static InputEvent Show(TestResult result, double? previousBestWpm, Theme theme)
@@ -24,7 +26,7 @@ public static class ResultsScreen
         table.AddRow("missed", $"{result.MissedCharacters}");
 
         AnsiConsole.Write(table);
-        AnsiConsole.MarkupLine(BuildPersonalBestMessage(result, previousBestWpm));
+        AnsiConsole.MarkupLine(PersonalBestMessage(result, previousBestWpm));
         AnsiConsole.MarkupLine("[grey58]tab[/] restart    [grey58]enter/m[/] menu    [grey58]esc[/] quit");
 
         while (true)
@@ -41,7 +43,7 @@ public static class ResultsScreen
         }
     }
 
-    private static string BuildPersonalBestMessage(TestResult result, double? previousBestWpm)
+    private static string PersonalBestMessage(TestResult result, double? previousBestWpm)
     {
         if (previousBestWpm is not { } best)
             return "[green]New personal best![/]";

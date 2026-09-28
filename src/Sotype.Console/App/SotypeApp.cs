@@ -1,5 +1,6 @@
 using Sotype.Cli.Input;
-using Sotype.Cli.Rendering;
+using Sotype.Cli.Screens;
+using Sotype.Cli.Theming;
 using Sotype.Domain;
 using Sotype.Domain.Configuration;
 using Sotype.Domain.History;
@@ -7,6 +8,9 @@ using Sotype.Domain.Words;
 
 namespace Sotype.Cli.App;
 
+/// <summary>
+/// Drives the screen flow: menu, test, results, then restart, menu, or quit.
+/// </summary>
 public sealed class SotypeApp(
     IWordListProvider wordListProvider,
     IHistoryRepository historyRepository,
@@ -20,38 +24,27 @@ public sealed class SotypeApp(
         {
             var (configuration, theme) = MenuScreen.Show(preferences);
 
-            var backToMenu = false;
-            while (!backToMenu)
+            while (true)
             {
                 var session = CreateSession(configuration);
-                var testOutcome = await TestScreen.RunAsync(session, theme);
-
-                if (testOutcome == InputEvent.BackToMenu)
-                {
-                    backToMenu = true;
-                    break;
-                }
+                var testOutcome = await new TestScreen(session, theme).RunAsync();
 
                 if (testOutcome == InputEvent.Restart)
                     continue;
 
-                var result = session.Result;
-                var previousBest = GetPreviousBestWpm(configuration);
+                if (testOutcome == InputEvent.BackToMenu)
+                    break;
 
-                historyRepository.Add(ToRunRecord(result, configuration, theme.Name));
-                preferences = new UserPreferences(configuration.Mode, configuration.Duration, configuration.WordCount, theme.Name);
-                preferencesRepository.Save(preferences);
+                var previousBest = PreviousBestWpm(configuration);
+                preferences = Record(session.Result, configuration, theme);
 
-                switch (ResultsScreen.Show(result, previousBest, theme))
-                {
-                    case InputEvent.Restart:
-                        continue;
-                    case InputEvent.BackToMenu:
-                        backToMenu = true;
-                        break;
-                    case InputEvent.Quit:
-                        return;
-                }
+                var resultsOutcome = ResultsScreen.Show(session.Result, previousBest, theme);
+
+                if (resultsOutcome == InputEvent.Quit)
+                    return;
+
+                if (resultsOutcome == InputEvent.BackToMenu)
+                    break;
             }
         }
     }
@@ -60,24 +53,34 @@ public sealed class SotypeApp(
         ? new TypingSession(configuration, wordListProvider)
         : new TypingSession(configuration, wordListProvider.TakeRandomWords(configuration.WordCount!.Value));
 
-    private double? GetPreviousBestWpm(TestConfiguration configuration) => historyRepository.GetAll()
+    private double? PreviousBestWpm(TestConfiguration configuration) => historyRepository.GetAll()
         .Where(record => record.Mode == configuration.Mode
             && record.Duration == configuration.Duration
             && record.WordCount == configuration.WordCount)
         .Select(record => (double?)record.Wpm)
         .Max();
 
-    private static RunRecord ToRunRecord(TestResult result, TestConfiguration configuration, string themeName) => new(
-        Timestamp: DateTimeOffset.Now,
-        Mode: configuration.Mode,
-        Duration: configuration.Duration,
-        WordCount: configuration.WordCount,
-        Wpm: result.Wpm,
-        RawWpm: result.RawWpm,
-        Accuracy: result.Accuracy,
-        CorrectCharacters: result.CorrectCharacters,
-        IncorrectCharacters: result.IncorrectCharacters,
-        ExtraCharacters: result.ExtraCharacters,
-        MissedCharacters: result.MissedCharacters,
-        ThemeName: themeName);
+    private UserPreferences Record(TestResult result, TestConfiguration configuration, Theme theme)
+    {
+        historyRepository.Add(new RunRecord(
+            Timestamp: DateTimeOffset.Now,
+            Mode: configuration.Mode,
+            Duration: configuration.Duration,
+            WordCount: configuration.WordCount,
+            Wpm: result.Wpm,
+            RawWpm: result.RawWpm,
+            Accuracy: result.Accuracy,
+            CorrectCharacters: result.CorrectCharacters,
+            IncorrectCharacters: result.IncorrectCharacters,
+            ExtraCharacters: result.ExtraCharacters,
+            MissedCharacters: result.MissedCharacters,
+            ThemeName: theme.Name));
+
+        var preferences = new UserPreferences(
+            configuration.Mode, configuration.Duration, configuration.WordCount, theme.Name);
+
+        preferencesRepository.Save(preferences);
+
+        return preferences;
+    }
 }

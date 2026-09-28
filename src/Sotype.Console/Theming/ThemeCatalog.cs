@@ -1,6 +1,9 @@
 namespace Sotype.Cli.Theming;
 
-/// <summary>The built-in color themes a user can pick from the menu.</summary>
+///<summary>
+/// The themes offered in the menu.
+/// </summary>
+/// TODO GH-4: make these configurable in JSON and load them
 public static class ThemeCatalog
 {
     public static readonly Theme SerikaDark = new(
