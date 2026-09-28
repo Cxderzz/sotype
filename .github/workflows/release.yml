@@ -16,59 +16,66 @@ jobs:
   arch-package:
     name: Build Arch Linux package
     runs-on: [self-hosted, Linux, X64]
-    container: archlinux:base-devel
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
+      BUILDER: sotype-arch-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - name: Install build dependencies
-        run: pacman -Syu --noconfirm --needed git dotnet-sdk github-cli
-
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.TAG }}
 
-      - name: Prepare sources
+      - name: Start Arch container
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          ver="${TAG#v}"
-          echo "PKGVER=$ver" >> "$GITHUB_ENV"
+          echo "PKGVER=${TAG#v}" >> "$GITHUB_ENV"
+          docker run -d --name "$BUILDER" archlinux:base-devel sleep infinity
+          docker exec "$BUILDER" pacman -Syu --noconfirm --needed git dotnet-sdk github-cli
+          docker exec "$BUILDER" mkdir /src
+          docker cp "$GITHUB_WORKSPACE/." "$BUILDER:/src"
 
+      - name: Build package
+        run: |
+          docker exec -i -e PKGVER -w /src "$BUILDER" bash -euo pipefail <<'SCRIPT'
+          git config --global --add safe.directory /src
           mkdir -p build
           cp packaging/PKGBUILD build/
           # makepkg uses a source file already present next to the PKGBUILD instead of
           # downloading it, so the package is built from exactly this checkout.
-          git archive --format=tar.gz --prefix="sotype-$ver/" -o "build/sotype-$ver.tar.gz" HEAD
-          sum=$(sha256sum "build/sotype-$ver.tar.gz" | cut -d' ' -f1)
+          git archive --format=tar.gz --prefix="sotype-$PKGVER/" -o "build/sotype-$PKGVER.tar.gz" HEAD
+          sum=$(sha256sum "build/sotype-$PKGVER.tar.gz" | cut -d' ' -f1)
           sed -i \
-            -e "s/^pkgver=.*/pkgver=$ver/" \
+            -e "s/^pkgver=.*/pkgver=$PKGVER/" \
             -e "s/^sha256sums=.*/sha256sums=('$sum')/" \
             build/PKGBUILD
 
-      - name: Build package
-        run: |
           # makepkg refuses to run as root.
           useradd -m builder
           chown -R builder build
           su builder -c 'cd build && makepkg --noconfirm'
           ls -l build/*.pkg.tar.zst
+          SCRIPT
+          mkdir -p dist
+          docker exec "$BUILDER" sh -c 'mkdir /out && cp /src/build/*.pkg.tar.zst /out/'
+          docker cp "$BUILDER:/out/." dist/
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: sotype-${{ env.PKGVER }}-arch
-          path: build/*.pkg.tar.zst
+          path: dist/*.pkg.tar.zst
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          docker exec -i -e GH_TOKEN -e GH_REPO -e TAG "$BUILDER" bash -euo pipefail <<'SCRIPT'
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" build/*.pkg.tar.zst --clobber
+            gh release upload "$TAG" /out/*.pkg.tar.zst --clobber
           else
-            gh release create "$TAG" build/*.pkg.tar.zst --title "sotype $TAG" --generate-notes --verify-tag
+            gh release create "$TAG" /out/*.pkg.tar.zst --title "sotype $TAG" --generate-notes --verify-tag
           fi
+          SCRIPT
 
-      - name: Clean workspace
+      - name: Remove Arch container
         if: always()
-        run: find "$GITHUB_WORKSPACE" -mindepth 1 -delete
+        run: docker rm -f "$BUILDER" || true
