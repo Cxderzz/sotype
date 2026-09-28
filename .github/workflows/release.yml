@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build, e.g. v0.1.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  arch-package:
+    name: Build Arch Linux package
+    runs-on: [self-hosted, Linux, X64]
+    container: archlinux:base-devel
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Install build dependencies
+        run: pacman -Syu --noconfirm --needed git dotnet-sdk github-cli
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Prepare sources
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          ver="${TAG#v}"
+          echo "PKGVER=$ver" >> "$GITHUB_ENV"
+
+          mkdir -p build
+          cp packaging/PKGBUILD build/
+          # makepkg uses a source file already present next to the PKGBUILD instead of
+          # downloading it, so the package is built from exactly this checkout.
+          git archive --format=tar.gz --prefix="sotype-$ver/" -o "build/sotype-$ver.tar.gz" HEAD
+          sum=$(sha256sum "build/sotype-$ver.tar.gz" | cut -d' ' -f1)
+          sed -i \
+            -e "s/^pkgver=.*/pkgver=$ver/" \
+            -e "s/^sha256sums=.*/sha256sums=('$sum')/" \
+            build/PKGBUILD
+
+      - name: Build package
+        run: |
+          # makepkg refuses to run as root.
+          useradd -m builder
+          chown -R builder build
+          su builder -c 'cd build && makepkg --noconfirm'
+          ls -l build/*.pkg.tar.zst
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sotype-${{ env.PKGVER }}-arch
+          path: build/*.pkg.tar.zst
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/*.pkg.tar.zst --clobber
+          else
+            gh release create "$TAG" build/*.pkg.tar.zst --title "sotype $TAG" --generate-notes --verify-tag
+          fi
+
+      - name: Clean workspace
+        if: always()
+        run: find "$GITHUB_WORKSPACE" -mindepth 1 -delete
