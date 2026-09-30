@@ -36,11 +36,28 @@ dotnet test
 
 Pushing a `v*` tag (e.g. `git tag v0.1.0 && git push origin v0.1.0`) runs the release
 workflow, which builds an Arch Linux package from [`packaging/PKGBUILD`](packaging/PKGBUILD)
-and attaches it to a GitHub release. Install it with:
+a Debian package, an RPM package, and a Windows zip, and attaches them to a GitHub release.
+
+On Arch Linux:
 
 ```sh
 sudo pacman -U sotype-<version>-1-x86_64.pkg.tar.zst
 ```
+
+On Debian/Ubuntu (self-contained, so no .NET install is required):
+
+```sh
+sudo apt install ./sotype_<version>-1_amd64.deb
+```
+
+On Fedora/RHEL/openSUSE (also self-contained):
+
+```sh
+sudo dnf install ./sotype-<version>-1.x86_64.rpm
+```
+
+On Windows, extract `sotype-<version>-windows-x64.zip` and run `sotype.exe`. It is
+self-contained, so no .NET install is required.
 
 ## License
 
