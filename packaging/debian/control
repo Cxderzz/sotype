@@ -1,0 +1,12 @@
+Package: sotype
+Version: @VERSION@
+Architecture: amd64
+Maintainer: Soren Kelly <sorenjameskelly@gmail.com>
+Installed-Size: @INSTALLED_SIZE@
+Depends: libc6, libgcc-s1, libstdc++6
+Section: games
+Priority: optional
+Homepage: https://github.com/Cxderzz/sotype
+Description: A full-screen terminal typing test in the style of monkeytype
+ Live per-character coloring, a smooth caret, timed and word-count modes,
+ themes, and run history, all in your terminal.

@@ -37,7 +37,7 @@ jobs:
           docker exec -i -e PKGVER -w /src "$BUILDER" bash -euo pipefail <<'SCRIPT'
           git config --global --add safe.directory /src
           mkdir -p build
-          cp packaging/PKGBUILD build/
+          cp packaging/arch/PKGBUILD build/
           # makepkg uses a source file already present next to the PKGBUILD instead of
           # downloading it, so the package is built from exactly this checkout.
           git archive --format=tar.gz --prefix="sotype-$PKGVER/" -o "build/sotype-$PKGVER.tar.gz" HEAD
@@ -63,19 +63,184 @@ jobs:
           name: sotype-${{ env.PKGVER }}-arch
           path: dist/*.pkg.tar.zst
 
-      - name: Publish GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          docker exec -i -e GH_TOKEN -e GH_REPO -e TAG "$BUILDER" bash -euo pipefail <<'SCRIPT'
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" /out/*.pkg.tar.zst --clobber
-          else
-            gh release create "$TAG" /out/*.pkg.tar.zst --title "sotype $TAG" --generate-notes --verify-tag
-          fi
-          SCRIPT
-
       - name: Remove Arch container
         if: always()
         run: docker rm -f "$BUILDER" || true
+
+  debian-package:
+    name: Build Debian package
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      BUILDER: sotype-debian-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Start Debian container
+        run: |
+          echo "PKGVER=${TAG#v}" >> "$GITHUB_ENV"
+          # The .NET SDK image is Debian-based, so it has both dotnet and dpkg-deb.
+          docker run -d --name "$BUILDER" mcr.microsoft.com/dotnet/sdk:10.0 sleep infinity
+          docker exec "$BUILDER" mkdir /src
+          docker cp "$GITHUB_WORKSPACE/." "$BUILDER:/src"
+
+      - name: Build package
+        run: |
+          docker exec -i -e PKGVER -w /src "$BUILDER" bash -euo pipefail <<'SCRIPT'
+          export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+          root=build/deb
+          # Self-contained: Debian's archive has no .NET runtime package to depend on,
+          # so the package bundles its own and only needs the C/C++ runtime libraries.
+          dotnet publish src/Sotype.Console/Sotype.Console.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -p:DebugType=none \
+            -o "$root/usr/lib/sotype"
+          install -d "$root/usr/bin"
+          # The apphost follows this symlink back to /usr/lib/sotype to find its assemblies.
+          ln -s /usr/lib/sotype/Sotype.Console "$root/usr/bin/sotype"
+          install -Dm644 LICENSE "$root/usr/share/doc/sotype/copyright"
+
+          install -d "$root/DEBIAN"
+          size=$(du -sk --exclude=DEBIAN "$root" | cut -f1)
+          sed -e "s/@VERSION@/$PKGVER-1/" -e "s/@INSTALLED_SIZE@/$size/" \
+            packaging/debian/control > "$root/DEBIAN/control"
+
+          mkdir /out
+          dpkg-deb --root-owner-group --build "$root" "/out/sotype_${PKGVER}-1_amd64.deb"
+          dpkg-deb --info "/out/sotype_${PKGVER}-1_amd64.deb"
+          SCRIPT
+          mkdir -p dist
+          docker cp "$BUILDER:/out/." dist/
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sotype-${{ env.PKGVER }}-debian
+          path: dist/*.deb
+
+      - name: Remove Debian container
+        if: always()
+        run: docker rm -f "$BUILDER" || true
+
+  rpm-package:
+    name: Build RPM package
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      BUILDER: sotype-rpm-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Start Fedora container
+        run: |
+          echo "PKGVER=${TAG#v}" >> "$GITHUB_ENV"
+          docker run -d --name "$BUILDER" fedora:latest sleep infinity
+          docker exec "$BUILDER" dnf install -y git rpm-build dotnet-sdk-10.0
+          docker exec "$BUILDER" mkdir /src
+          docker cp "$GITHUB_WORKSPACE/." "$BUILDER:/src"
+
+      - name: Build package
+        run: |
+          docker exec -i -e PKGVER -w /src "$BUILDER" bash -euo pipefail <<'SCRIPT'
+          git config --global --add safe.directory /src
+          # RPM versions can't contain '-'; '~' also sorts pre-releases (1.0~rc1) before 1.0.
+          rpmver=${PKGVER//-/\~}
+          top=/src/build/rpm
+          mkdir -p "$top/SOURCES" "$top/SPECS"
+          # Build from exactly this checkout rather than downloading the tag's tarball.
+          git archive --format=tar.gz --prefix=sotype/ -o "$top/SOURCES/sotype.tar.gz" HEAD
+          sed "s/^Version:.*/Version:        $rpmver/" packaging/rpm/sotype.spec > "$top/SPECS/sotype.spec"
+          rpmbuild -bb --define "_topdir $top" --define "dist %{nil}" "$top/SPECS/sotype.spec"
+          mkdir /out
+          cp "$top"/RPMS/*/*.rpm /out/
+          rpm -qip /out/*.rpm
+          rpm -qp --requires /out/*.rpm
+          SCRIPT
+          mkdir -p dist
+          docker cp "$BUILDER:/out/." dist/
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sotype-${{ env.PKGVER }}-rpm
+          path: dist/*.rpm
+
+      - name: Remove Fedora container
+        if: always()
+        run: docker rm -f "$BUILDER" || true
+
+  windows-package:
+    name: Build Windows package
+    runs-on: [self-hosted, windows]
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}/dotnet
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build package
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pkgver = $env:TAG -replace '^v', ''
+          "PKGVER=$pkgver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # Self-contained single file: Windows has no system .NET runtime we can depend
+          # on, so the exe carries its own and runs with nothing else installed.
+          dotnet publish src/Sotype.Console/Sotype.Console.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=none `
+            -o publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force -Path stage, dist | Out-Null
+          Copy-Item publish/Sotype.Console.exe stage/sotype.exe
+          Copy-Item LICENSE stage/LICENSE
+          Compress-Archive -Path stage/* -DestinationPath "dist/sotype-$pkgver-windows-x64.zip" -Force
+          Get-ChildItem dist
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sotype-${{ env.PKGVER }}-windows
+          path: dist/*.zip
+
+  release:
+    name: Publish GitHub release
+    needs: [arch-package, debian-package, rpm-package, windows-package]
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sotype-*
+          path: dist
+          merge-multiple: true
+
+      # Creates the release, or updates it and replaces same-named assets when a tag is rebuilt.
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: sotype ${{ env.TAG }}
+          generate_release_notes: true
+          files: dist/*
