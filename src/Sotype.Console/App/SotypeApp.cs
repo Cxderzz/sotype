@@ -5,6 +5,7 @@ using Sotype.Domain;
 using Sotype.Domain.Configuration;
 using Sotype.Domain.History;
 using Sotype.Domain.Words;
+using Spectre.Console;
 
 namespace Sotype.Cli.App;
 
@@ -12,6 +13,8 @@ namespace Sotype.Cli.App;
 /// Drives the screen flow: menu, test, results, then restart, menu, or quit.
 /// </summary>
 public sealed class SotypeApp(
+    IAnsiConsole console,
+    TimeProvider timeProvider,
     IWordListProvider wordListProvider,
     IHistoryRepository historyRepository,
     IPreferencesRepository preferencesRepository)
@@ -22,12 +25,12 @@ public sealed class SotypeApp(
 
         while (true)
         {
-            var (configuration, theme) = MenuScreen.Show(preferences);
+            var (configuration, theme) = MenuScreen.Show(console, preferences);
 
             while (true)
             {
                 var session = CreateSession(configuration);
-                var testOutcome = await new TestScreen(session, theme).RunAsync();
+                var testOutcome = await new TestScreen(console, session, theme, timeProvider).RunAsync();
 
                 if (testOutcome == InputEvent.Restart)
                     continue;
@@ -38,7 +41,7 @@ public sealed class SotypeApp(
                 var previousBest = PreviousBestWpm(configuration);
                 preferences = Record(session.Result, configuration, theme);
 
-                var resultsOutcome = ResultsScreen.Show(session.Result, previousBest, theme);
+                var resultsOutcome = ResultsScreen.Show(console, session.Result, previousBest, theme);
 
                 if (resultsOutcome == InputEvent.Quit)
                     return;
@@ -50,8 +53,8 @@ public sealed class SotypeApp(
     }
 
     private TypingSession CreateSession(TestConfiguration configuration) => configuration.Mode == TestMode.Time
-        ? new TypingSession(configuration, wordListProvider)
-        : new TypingSession(configuration, wordListProvider.TakeRandomWords(configuration.WordCount!.Value));
+        ? new TypingSession(configuration, wordListProvider, timeProvider)
+        : new TypingSession(configuration, wordListProvider.TakeRandomWords(configuration.WordCount!.Value), timeProvider);
 
     private double? PreviousBestWpm(TestConfiguration configuration) => historyRepository.GetAll()
         .Where(record => record.Mode == configuration.Mode
@@ -63,7 +66,7 @@ public sealed class SotypeApp(
     private UserPreferences Record(TestResult result, TestConfiguration configuration, Theme theme)
     {
         historyRepository.Add(new RunRecord(
-            Timestamp: DateTimeOffset.Now,
+            Timestamp: timeProvider.GetLocalNow(),
             Mode: configuration.Mode,
             Duration: configuration.Duration,
             WordCount: configuration.WordCount,

@@ -11,15 +11,15 @@ public static class SynchronizedOutput
     private const string Begin = "\x1b[?2026h";
     private const string End = "\x1b[?2026l";
 
-    public static void Draw(Action repaint)
+    public static void Draw(IAnsiConsole console, Action repaint)
     {
-        if (!AnsiConsole.Profile.Capabilities.Ansi)
+        if (!console.Profile.Capabilities.Ansi)
         {
             repaint();
             return;
         }
 
-        var writer = AnsiConsole.Profile.Out.Writer;
+        var writer = console.Profile.Out.Writer;
 
         writer.Write(Begin);
         repaint();

@@ -17,22 +17,22 @@ public static class MenuScreen
     private static readonly int[] DurationChoicesSeconds = [15, 30, 60, 120];
     private static readonly int[] WordCountChoices = [10, 25, 50, 100];
 
-    public static (TestConfiguration Configuration, Theme Theme) Show(UserPreferences preferences)
+    public static (TestConfiguration Configuration, Theme Theme) Show(IAnsiConsole console, UserPreferences preferences)
     {
-        AnsiConsole.Clear();
-        AnsiConsole.Write(new FigletText("sotype").Color(Color.Yellow));
+        console.Clear();
+        console.Write(new FigletText("sotype").Color(Color.Yellow));
 
-        var mode = AnsiConsole.Prompt(
+        var mode = console.Prompt(
             new SelectionPrompt<TestMode>()
                 .Title("Select a [yellow]mode[/]")
                 .AddChoices(TestMode.Time, TestMode.Words)
                 .DefaultValue(preferences.Mode));
 
         var configuration = mode == TestMode.Time
-            ? TestConfiguration.ForDuration(TimeSpan.FromSeconds(PromptDuration(preferences)))
-            : TestConfiguration.ForWordCount(PromptWordCount(preferences));
+            ? TestConfiguration.ForDuration(TimeSpan.FromSeconds(PromptDuration(console, preferences)))
+            : TestConfiguration.ForWordCount(PromptWordCount(console, preferences));
 
-        var themeName = AnsiConsole.Prompt(
+        var themeName = console.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select a [yellow]theme[/]")
                 .AddChoices(ThemeCatalog.All.Select(theme => theme.Name))
@@ -41,14 +41,14 @@ public static class MenuScreen
         return (configuration, ThemeCatalog.GetByName(themeName));
     }
 
-    private static int PromptDuration(UserPreferences preferences) => AnsiConsole.Prompt(
+    private static int PromptDuration(IAnsiConsole console, UserPreferences preferences) => console.Prompt(
         new SelectionPrompt<int>()
             .Title("Select a [yellow]duration[/]")
             .AddChoices(DurationChoicesSeconds)
             .DefaultValue((int)(preferences.Duration ?? TimeSpan.Zero).TotalSeconds)
             .UseConverter(seconds => $"{seconds}s"));
 
-    private static int PromptWordCount(UserPreferences preferences) => AnsiConsole.Prompt(
+    private static int PromptWordCount(IAnsiConsole console, UserPreferences preferences) => console.Prompt(
         new SelectionPrompt<int>()
             .Title("Select a [yellow]word count[/]")
             .AddChoices(WordCountChoices)

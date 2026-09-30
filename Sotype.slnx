@@ -8,5 +8,6 @@
     <Project Path="tests/Sotype.Console.Tests/Sotype.Console.Tests.csproj" />
     <Project Path="tests/Sotype.Domain.Tests/Sotype.Domain.Tests.csproj" />
     <Project Path="tests/Sotype.Infrastructure.Tests/Sotype.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Sotype.IntegrationTests/Sotype.IntegrationTests.csproj" />
   </Folder>
 </Solution>

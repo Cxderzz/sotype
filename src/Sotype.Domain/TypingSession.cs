@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Sotype.Domain.Statistics;
 using Sotype.Domain.Words;
 
@@ -17,13 +16,19 @@ public sealed class TypingSession
     private readonly List<Word> _words = new();
     private readonly TestConfiguration _configuration;
     private readonly IWordListProvider? _wordListProvider;
-    private readonly Stopwatch _stopwatch = new();
+    private readonly TimeProvider _timeProvider;
+
+    private long? _startedAt;
+    private TimeSpan? _finalElapsed;
 
     private int _currentWordIndex;
     private TestResult? _result;
 
-    /// <summary>Creates a <see cref="TestMode.Words"/> session over an exact, pre-generated word list.</summary>
-    public TypingSession(TestConfiguration configuration, IReadOnlyList<string> words)
+    /// <summary>
+    /// Creates a <see cref="TestMode.Words"/> session over an exact, pre-generated word list.
+    /// </summary>
+    /// <param name="timeProvider">The clock the session is timed against. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public TypingSession(TestConfiguration configuration, IReadOnlyList<string> words, TimeProvider? timeProvider = null)
     {
         if (configuration.Mode != TestMode.Words)
             throw new ArgumentException($"This constructor requires {TestMode.Words} configuration.", nameof(configuration));
@@ -34,6 +39,7 @@ public sealed class TypingSession
                 $"Configuration specifies {expectedWordCount} words but {words.Count} were supplied.", nameof(words));
 
         _configuration = configuration;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         foreach (var word in words)
             _words.Add(new Word(word));
     }
@@ -42,13 +48,15 @@ public sealed class TypingSession
     /// Creates a <see cref="TestMode.Time"/> session backed by a word provider, which is drawn
     /// from as needed so the word stream never visibly runs out before the clock does.
     /// </summary>
-    public TypingSession(TestConfiguration configuration, IWordListProvider wordListProvider)
+    /// <param name="timeProvider">The clock the session is timed against. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public TypingSession(TestConfiguration configuration, IWordListProvider wordListProvider, TimeProvider? timeProvider = null)
     {
         if (configuration.Mode != TestMode.Time)
             throw new ArgumentException($"This constructor requires {TestMode.Time} configuration.", nameof(configuration));
 
         _configuration = configuration;
         _wordListProvider = wordListProvider;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         RefillWords(TimeModeInitialWordBufferSize);
     }
 
@@ -64,7 +72,8 @@ public sealed class TypingSession
 
     public Word CurrentWord => _words[_currentWordIndex];
 
-    public TimeSpan Elapsed => _stopwatch.Elapsed;
+    public TimeSpan Elapsed => _finalElapsed
+        ?? (_startedAt is { } startedAt ? _timeProvider.GetElapsedTime(startedAt) : TimeSpan.Zero);
 
     /// <summary>The outcome of the session. Throws until <see cref="IsFinished"/> is true.</summary>
     public TestResult Result => _result ?? throw new InvalidOperationException("The session has not finished yet.");
@@ -137,10 +146,10 @@ public sealed class TypingSession
     /// </summary>
     public void Tick()
     {
-        if (IsFinished || Mode != TestMode.Time || !_stopwatch.IsRunning)
+        if (IsFinished || Mode != TestMode.Time || _startedAt is null)
             return;
 
-        if (_stopwatch.Elapsed >= _configuration.Duration!.Value)
+        if (Elapsed >= _configuration.Duration!.Value)
             Finish();
     }
 
@@ -153,10 +162,10 @@ public sealed class TypingSession
         if (_result is not null)
             return _result;
 
-        _stopwatch.Stop();
+        var elapsed = Elapsed;
+        _finalElapsed = elapsed;
 
         var (correct, incorrect, extra, missed) = CountCharacters();
-        var elapsed = _stopwatch.Elapsed;
 
         _result = new TestResult(
             Mode,
@@ -182,8 +191,7 @@ public sealed class TypingSession
 
     private void EnsureStarted()
     {
-        if (!_stopwatch.IsRunning)
-            _stopwatch.Start();
+        _startedAt ??= _timeProvider.GetTimestamp();
     }
 
     private void MaybeRefillTimeModeBuffer()

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Sotype.Cli.Input;
 using Sotype.Cli.Rendering;
 using Sotype.Cli.Terminal;
@@ -19,19 +18,24 @@ public sealed class TestScreen
     private static readonly TimeSpan BlinkDelay = TimeSpan.FromMilliseconds(900);
     private static readonly TimeSpan BlinkInterval = TimeSpan.FromMilliseconds(530);
 
+    private readonly IAnsiConsole _console;
     private readonly TypingSession _session;
     private readonly TestView _view;
     private readonly CaretAnimator _caret = new();
-    private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private readonly TimeProvider _timeProvider;
+    private readonly long _startedAt;
 
     private WordLayout _layout;
     private TimeSpan _lastFrameAt;
     private TimeSpan _lastInputAt;
     private InputEvent _outcome = InputEvent.None;
 
-    public TestScreen(TypingSession session, Theme theme)
+    public TestScreen(IAnsiConsole console, TypingSession session, Theme theme, TimeProvider timeProvider)
     {
+        _console = console;
         _session = session;
+        _timeProvider = timeProvider;
+        _startedAt = timeProvider.GetTimestamp();
         _view = new TestView(theme);
         _layout = Layout();
     }
@@ -43,9 +47,9 @@ public sealed class TestScreen
     public async Task<InputEvent> RunAsync()
     {
         // A restart starts a new Live display, which would otherwise draw below the old panel.
-        AnsiConsole.Clear();
+        _console.Clear();
 
-        await AnsiConsole.Live(Render())
+        await _console.Live(Render())
             .AutoClear(false)
             .Overflow(VerticalOverflow.Crop)
             .StartAsync(async ctx =>
@@ -54,7 +58,7 @@ public sealed class TestScreen
 
                 while (!_session.IsFinished)
                 {
-                    var startedAt = _clock.Elapsed;
+                    var startedAt = Now;
 
                     if (ReadInput() is { } signal)
                     {
@@ -95,16 +99,24 @@ public sealed class TestScreen
         _caret.Column,
         IsCaretVisible(),
         TestView.Header(_session),
-        Console.WindowWidth,
-        Console.WindowHeight);
+        _console.Profile.Width,
+        _console.Profile.Height);
 
-    /// <summary>Drains the queue so a burst of keystrokes is not spread over later frames.</summary>
+    private TimeSpan Now => _timeProvider.GetElapsedTime(_startedAt);
+
+    /// <summary>
+    /// Drains the queue so a burst of keystrokes is not spread over later frames. Stops once the
+    /// session finishes, leaving any keys pressed after the final one for the results screen.
+    /// </summary>
     private InputEvent? ReadInput()
     {
-        while (Console.KeyAvailable)
+        while (!_session.IsFinished && _console.Input.IsKeyAvailable())
         {
-            var signal = InputReader.Dispatch(Console.ReadKey(intercept: true), _session);
-            _lastInputAt = _clock.Elapsed;
+            if (_console.Input.ReadKey(intercept: true) is not { } key)
+                break;
+
+            var signal = InputReader.Dispatch(key, _session);
+            _lastInputAt = Now;
 
             if (signal != InputEvent.None)
                 return signal;
@@ -120,10 +132,12 @@ public sealed class TestScreen
         _lastFrameAt = now;
     }
 
-    /// <summary>The caret holds steady while typing and blinks once the typist pauses.</summary>
+    ///<summary>
+    /// The caret holds steady while typing and blinks once the typist pauses.
+    /// </summary>
     private bool IsCaretVisible()
     {
-        var idle = _clock.Elapsed - _lastInputAt;
+        var idle = Now - _lastInputAt;
 
         if (_caret.IsMoving || idle < BlinkDelay)
             return true;
@@ -133,20 +147,20 @@ public sealed class TestScreen
 
     private async Task WaitForNextFrame(TimeSpan startedAt)
     {
-        var remaining = FrameInterval - (_clock.Elapsed - startedAt);
+        var remaining = FrameInterval - (Now - startedAt);
 
         if (remaining > TimeSpan.Zero)
-            await Task.Delay(remaining);
+            await Task.Delay(remaining, _timeProvider);
     }
 
     private void Draw(LiveDisplayContext ctx)
     {
         ctx.UpdateTarget(Render());
-        SynchronizedOutput.Draw(ctx.Refresh);
+        SynchronizedOutput.Draw(_console, ctx.Refresh);
     }
 
     private IRenderable Render() => _view.Render(_session, _layout, IsCaretVisible() ? _caret.Column : null);
 
     private WordLayout Layout() =>
-        WordLayout.Create(_session.Words, _session.CurrentWord, Math.Max(20, Console.WindowWidth - 8));
+        WordLayout.Create(_session.Words, _session.CurrentWord, Math.Max(20, _console.Profile.Width - 8));
 }

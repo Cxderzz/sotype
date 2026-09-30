@@ -3,6 +3,7 @@ using Sotype.Cli.Terminal;
 using Sotype.Infrastructure.Configuration;
 using Sotype.Infrastructure.History;
 using Sotype.Infrastructure.Words;
+using Spectre.Console;
 
 namespace Sotype.Cli;
 
@@ -15,6 +16,8 @@ public static class Program
             using var terminalSession = new TerminalSession();
 
             var app = new SotypeApp(
+                AnsiConsole.Console,
+                TimeProvider.System,
                 new EmbeddedWordListProvider(),
                 new JsonHistoryRepository(),
                 new JsonPreferencesRepository());
