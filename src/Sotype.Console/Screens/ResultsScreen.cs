@@ -10,9 +10,9 @@ namespace Sotype.Cli.Screens;
 /// </summary>
 public static class ResultsScreen
 {
-    public static InputEvent Show(TestResult result, double? previousBestWpm, Theme theme)
+    public static InputEvent Show(IAnsiConsole console, TestResult result, double? previousBestWpm, Theme theme)
     {
-        AnsiConsole.Clear();
+        console.Clear();
 
         var table = new Table().Border(TableBorder.Rounded).BorderColor(Color.Grey35);
         table.AddColumn("stat");
@@ -25,13 +25,13 @@ public static class ResultsScreen
         table.AddRow("extra", $"[{theme.Extra}]{result.ExtraCharacters}[/]");
         table.AddRow("missed", $"{result.MissedCharacters}");
 
-        AnsiConsole.Write(table);
-        AnsiConsole.MarkupLine(PersonalBestMessage(result, previousBestWpm));
-        AnsiConsole.MarkupLine("[grey58]tab[/] restart    [grey58]enter/m[/] menu    [grey58]esc[/] quit");
+        console.Write(table);
+        console.MarkupLine(PersonalBestMessage(result, previousBestWpm));
+        console.MarkupLine("[grey58]tab[/] restart    [grey58]enter/m[/] menu    [grey58]esc[/] quit");
 
         while (true)
         {
-            switch (Console.ReadKey(intercept: true).Key)
+            switch (console.Input.ReadKey(intercept: true)?.Key)
             {
                 case ConsoleKey.Tab:
                     return InputEvent.Restart;
