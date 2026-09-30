@@ -40,5 +40,5 @@ public sealed class JsonPreferencesRepository(string? filePath = null) : IPrefer
     }
 
     private static string DefaultFilePath() => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "sotype", "preferences.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create), "sotype", "preferences.json");
 }

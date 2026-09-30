@@ -43,5 +43,5 @@ public sealed class JsonHistoryRepository(string? filePath = null) : IHistoryRep
     }
 
     private static string DefaultFilePath() => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sotype", "history.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create), "sotype", "history.json");
 }
