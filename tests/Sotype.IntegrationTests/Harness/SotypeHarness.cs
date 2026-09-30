@@ -31,7 +31,9 @@ public sealed class SotypeHarness : IDisposable
 
     public JsonPreferencesRepository Preferences { get; }
 
-    /// <summary>Saves preferences before the run, so the menu opens on known defaults.</summary>
+    /// <summary>
+    /// Saves preferences before the run, so the menu opens on known defaults.
+    /// </summary>
     public SotypeHarness WithPreferences(UserPreferences preferences)
     {
         Preferences.Save(preferences);

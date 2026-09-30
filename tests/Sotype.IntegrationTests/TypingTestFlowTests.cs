@@ -1,3 +1,4 @@
+using Sotype.Cli.Theming;
 using Sotype.Domain;
 using Sotype.Domain.Configuration;
 using Sotype.Domain.History;
@@ -27,9 +28,6 @@ public class TypingTestFlowTests
 
     [TearDown]
     public void TearDown() => _harness.Dispose();
-
-    /// <summary>Accepts the mode, length, and theme the menu opens on.</summary>
-    private ScriptedInput AcceptMenuDefaults() => _harness.Input.Enter().Enter().Enter();
 
     [Test]
     public async Task WordsTest_ShouldRecordARunWithExactStats_WhenTypedPerfectly()
@@ -164,18 +162,21 @@ public class TypingTestFlowTests
     [Test]
     public async Task Menu_ShouldSaveTheChosenSettingsAsPreferences()
     {
-        // From the defaults (time, 30s, SerikaDark): pick words, 25 words, Dracula.
+        var themes = ThemeCatalog.All.ToList();
+        var stepsToDracula = themes.IndexOf(ThemeCatalog.Dracula) - themes.IndexOf(ThemeCatalog.SerikaDark);
+
+        _harness.WithPreferences(new UserPreferences(TestMode.Time, TimeSpan.FromSeconds(30), null, ThemeCatalog.SerikaDark.Name));
         _harness.Input
-            .Down().Enter()
-            .Down().Enter()
-            .Down().Enter()
+            .Down().Enter()                 // time -> words
+            .Down().Enter()                 // 10 -> 25 words
+            .Down(stepsToDracula).Enter()   // SerikaDark -> Dracula
             .Type(string.Join(' ', Enumerable.Range(0, 25).Select(i => TenWords[i % TenWords.Length])))
             .Escape();
 
         await _harness.RunAsync();
 
-        _harness.Preferences.Load().ShouldBe(new UserPreferences(TestMode.Words, null, 25, "Dracula"));
-        _harness.History.GetAll().ShouldHaveSingleItem().ThemeName.ShouldBe("Dracula");
+        _harness.Preferences.Load().ShouldBe(new UserPreferences(TestMode.Words, null, 25, ThemeCatalog.Dracula.Name));
+        _harness.History.GetAll().ShouldHaveSingleItem().ThemeName.ShouldBe(ThemeCatalog.Dracula.Name);
     }
 
     [Test]
@@ -211,4 +212,6 @@ public class TypingTestFlowTests
         output.ShouldContain("alpha");
         output.ShouldContain("joker");
     }
+
+    private ScriptedInput AcceptMenuDefaults() => _harness.Input.Enter().Enter().Enter();
 }
