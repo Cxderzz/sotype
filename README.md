@@ -26,6 +26,10 @@ dotnet build
 dotnet test
 ```
 
+`tests/Sotype.IntegrationTests` runs the whole app (menu, test, results) against scripted
+keypresses and a manual clock. Add a scenario there to check a change without sitting
+through a real typing test.
+
 ## Architecture
 
 - `Sotype.Domain`: the domain layer, totally independent of any runtime logic
