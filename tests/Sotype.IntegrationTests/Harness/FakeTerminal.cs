@@ -22,7 +22,8 @@ public sealed partial class FakeTerminal : IAnsiConsole
             Ansi = AnsiSupport.Yes,
             ColorSystem = ColorSystemSupport.TrueColor,
             Interactive = InteractionSupport.Yes,
-            Out = new AnsiConsoleOutput(_output)
+            Out = new AnsiConsoleOutput(_output),
+            Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false }
         });
 
         _inner.Profile.Width = width;
