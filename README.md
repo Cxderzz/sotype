@@ -35,7 +35,7 @@ dotnet test
 ## Packaging
 
 Pushing a `v*` tag (e.g. `git tag v0.1.0 && git push origin v0.1.0`) runs the release
-workflow, which builds an Arch Linux package from [`packaging/PKGBUILD`](packaging/PKGBUILD)
+workflow, which builds an Arch Linux package from [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD),
 a Debian package, an RPM package, and a Windows zip, and attaches them to a GitHub release.
 
 On Arch Linux:

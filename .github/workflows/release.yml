@@ -37,7 +37,7 @@ jobs:
           docker exec -i -e PKGVER -w /src "$BUILDER" bash -euo pipefail <<'SCRIPT'
           git config --global --add safe.directory /src
           mkdir -p build
-          cp packaging/PKGBUILD build/
+          cp packaging/arch/PKGBUILD build/
           # makepkg uses a source file already present next to the PKGBUILD instead of
           # downloading it, so the package is built from exactly this checkout.
           git archive --format=tar.gz --prefix="sotype-$PKGVER/" -o "build/sotype-$PKGVER.tar.gz" HEAD
