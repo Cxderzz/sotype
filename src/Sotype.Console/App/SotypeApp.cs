@@ -1,9 +1,9 @@
 using Sotype.Cli.Input;
 using Sotype.Cli.Screens;
-using Sotype.Cli.Theming;
 using Sotype.Domain;
 using Sotype.Domain.Configuration;
 using Sotype.Domain.History;
+using Sotype.Domain.Themes;
 using Sotype.Domain.Words;
 using Spectre.Console;
 
@@ -17,7 +17,8 @@ public sealed class SotypeApp(
     TimeProvider timeProvider,
     IWordListProvider wordListProvider,
     IHistoryRepository historyRepository,
-    IPreferencesRepository preferencesRepository)
+    IPreferencesRepository preferencesRepository,
+    IThemeRepository themeRepository)
 {
     public async Task RunAsync()
     {
@@ -25,7 +26,7 @@ public sealed class SotypeApp(
 
         while (true)
         {
-            var (configuration, theme) = MenuScreen.Show(console, preferences);
+            var (configuration, theme) = MenuScreen.Show(console, preferences, themeRepository);
 
             while (true)
             {

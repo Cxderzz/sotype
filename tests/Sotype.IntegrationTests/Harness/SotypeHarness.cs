@@ -1,7 +1,9 @@
 using Sotype.Cli.App;
 using Sotype.Domain.Configuration;
+using Sotype.Domain.Constants;
 using Sotype.Infrastructure.Configuration;
 using Sotype.Infrastructure.History;
+using Sotype.Infrastructure.Theme;
 
 namespace Sotype.IntegrationTests.Harness;
 
@@ -9,7 +11,7 @@ public sealed class SotypeHarness : IDisposable
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
 
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), $"sotype-integration-{Guid.NewGuid()}");
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), $"{StringLookups.AppName}-integration-{Guid.NewGuid()}");
     private readonly FixedWordListProvider _words;
 
     public SotypeHarness(params string[] words)
@@ -19,6 +21,7 @@ public sealed class SotypeHarness : IDisposable
         Terminal = new FakeTerminal(Input);
         History = new JsonHistoryRepository(Path.Combine(_directory, "history.json"));
         Preferences = new JsonPreferencesRepository(Path.Combine(_directory, "preferences.json"));
+        Themes = new JsonThemeRepository(Path.Combine(_directory, "themes.json"));
     }
 
     public ManualClock Clock { get; } = new();
@@ -30,6 +33,8 @@ public sealed class SotypeHarness : IDisposable
     public JsonHistoryRepository History { get; }
 
     public JsonPreferencesRepository Preferences { get; }
+    
+    public JsonThemeRepository Themes { get; }
 
     /// <summary>
     /// Saves preferences before the run, so the menu opens on known defaults.
@@ -46,7 +51,7 @@ public sealed class SotypeHarness : IDisposable
     /// </summary>
     public async Task RunAsync(TimeSpan? timeout = null)
     {
-        var app = new SotypeApp(Terminal, Clock, _words, History, Preferences);
+        var app = new SotypeApp(Terminal, Clock, _words, History, Preferences, Themes);
 
         try
         {

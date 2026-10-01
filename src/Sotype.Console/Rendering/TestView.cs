@@ -1,5 +1,5 @@
-using Sotype.Cli.Theming;
 using Sotype.Domain;
+using Sotype.Domain.Themes;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 

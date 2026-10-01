@@ -1,4 +1,4 @@
-namespace Sotype.Cli.Theming;
+namespace Sotype.Domain.Themes;
 
 /// <summary>
 /// A colour palette for the typing screen, as Spectre.Console markup colour names.

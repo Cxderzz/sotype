@@ -1,6 +1,6 @@
-using Sotype.Cli.Theming;
 using Sotype.Domain;
 using Sotype.Domain.Configuration;
+using Sotype.Domain.Themes;
 using Spectre.Console;
 
 namespace Sotype.Cli.Screens;
@@ -17,7 +17,7 @@ public static class MenuScreen
     private static readonly int[] DurationChoicesSeconds = [15, 30, 60, 120];
     private static readonly int[] WordCountChoices = [10, 25, 50, 100];
 
-    public static (TestConfiguration Configuration, Theme Theme) Show(IAnsiConsole console, UserPreferences preferences)
+    public static (TestConfiguration Configuration, Theme Theme) Show(IAnsiConsole console, UserPreferences preferences, IThemeRepository themeRepository)
     {
         console.Clear();
         console.Write(new FigletText("sotype").Color(Color.Yellow));
@@ -35,10 +35,10 @@ public static class MenuScreen
         var themeName = console.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select a [yellow]theme[/]")
-                .AddChoices(ThemeCatalog.All.Select(theme => theme.Name))
+                .AddChoices(themeRepository.GetAll().Select(theme => theme.Name))
                 .DefaultValue(preferences.ThemeName));
 
-        return (configuration, ThemeCatalog.GetByName(themeName));
+        return (configuration, themeRepository.GetByName(themeName));
     }
 
     private static int PromptDuration(IAnsiConsole console, UserPreferences preferences) => console.Prompt(

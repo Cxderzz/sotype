@@ -1,6 +1,6 @@
 using Sotype.Cli.Input;
-using Sotype.Cli.Theming;
 using Sotype.Domain;
+using Sotype.Domain.Themes;
 using Spectre.Console;
 
 namespace Sotype.Cli.Screens;

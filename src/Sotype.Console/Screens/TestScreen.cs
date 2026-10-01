@@ -1,8 +1,8 @@
 using Sotype.Cli.Input;
 using Sotype.Cli.Rendering;
 using Sotype.Cli.Terminal;
-using Sotype.Cli.Theming;
 using Sotype.Domain;
+using Sotype.Domain.Themes;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 

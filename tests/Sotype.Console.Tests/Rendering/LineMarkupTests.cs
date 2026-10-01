@@ -1,6 +1,6 @@
 using Sotype.Cli.Rendering;
-using Sotype.Cli.Theming;
 using Sotype.Domain;
+using Sotype.Domain.Themes;
 
 namespace Sotype.Cli.Tests.Rendering;
 

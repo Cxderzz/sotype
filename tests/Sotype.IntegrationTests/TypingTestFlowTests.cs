@@ -1,4 +1,4 @@
-using Sotype.Cli.Theming;
+using NSubstitute;
 using Sotype.Domain;
 using Sotype.Domain.Configuration;
 using Sotype.Domain.History;
@@ -24,7 +24,10 @@ public class TypingTestFlowTests
     private SotypeHarness _harness = null!;
 
     [SetUp]
-    public void SetUp() => _harness = new SotypeHarness(TenWords);
+    public void SetUp()
+    {
+        _harness = new SotypeHarness(TenWords);
+    }
 
     [TearDown]
     public void TearDown() => _harness.Dispose();
@@ -162,21 +165,18 @@ public class TypingTestFlowTests
     [Test]
     public async Task Menu_ShouldSaveTheChosenSettingsAsPreferences()
     {
-        var themes = ThemeCatalog.All.ToList();
-        var stepsToDracula = themes.IndexOf(ThemeCatalog.Dracula) - themes.IndexOf(ThemeCatalog.SerikaDark);
-
-        _harness.WithPreferences(new UserPreferences(TestMode.Time, TimeSpan.FromSeconds(30), null, ThemeCatalog.SerikaDark.Name));
+        _harness.WithPreferences(new UserPreferences(TestMode.Time, TimeSpan.FromSeconds(30), null, ));
         _harness.Input
             .Down().Enter()                 // time -> words
             .Down().Enter()                 // 10 -> 25 words
-            .Down(stepsToDracula).Enter()   // SerikaDark -> Dracula
+            .Down(3).Enter()                // third theme
             .Type(string.Join(' ', Enumerable.Range(0, 25).Select(i => TenWords[i % TenWords.Length])))
             .Escape();
 
         await _harness.RunAsync();
 
-        _harness.Preferences.Load().ShouldBe(new UserPreferences(TestMode.Words, null, 25, ThemeCatalog.Dracula.Name));
-        _harness.History.GetAll().ShouldHaveSingleItem().ThemeName.ShouldBe(ThemeCatalog.Dracula.Name);
+        _harness.Preferences.Load().ShouldBe(new UserPreferences(TestMode.Words, null, 25, themes[3].Name));
+        _harness.History.GetAll().ShouldHaveSingleItem().ThemeName.ShouldBe(themes[3].Name);
     }
 
     [Test]
