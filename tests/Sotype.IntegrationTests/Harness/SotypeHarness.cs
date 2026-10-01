@@ -1,6 +1,7 @@
 using Sotype.Cli.App;
 using Sotype.Domain.Configuration;
 using Sotype.Domain.Constants;
+using Sotype.Domain.Themes;
 using Sotype.Infrastructure.Configuration;
 using Sotype.Infrastructure.History;
 using Sotype.Infrastructure.Theme;
@@ -42,6 +43,12 @@ public sealed class SotypeHarness : IDisposable
     public SotypeHarness WithPreferences(UserPreferences preferences)
     {
         Preferences.Save(preferences);
+        return this;
+    }
+
+    public SotypeHarness WithThemes(IEnumerable<Theme> themes)
+    {
+        Themes.SaveMultiple(themes);
         return this;
     }
 

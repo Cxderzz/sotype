@@ -1,7 +1,7 @@
-using NSubstitute;
 using Sotype.Domain;
 using Sotype.Domain.Configuration;
 using Sotype.Domain.History;
+using Sotype.Infrastructure.Theme;
 using Sotype.IntegrationTests.Harness;
 
 namespace Sotype.IntegrationTests;
@@ -165,7 +165,9 @@ public class TypingTestFlowTests
     [Test]
     public async Task Menu_ShouldSaveTheChosenSettingsAsPreferences()
     {
-        _harness.WithPreferences(new UserPreferences(TestMode.Time, TimeSpan.FromSeconds(30), null, ));
+        var themes = JsonThemeRepository.GetDefaultThemes();
+        
+        _harness.WithThemes(themes).WithPreferences(new UserPreferences(TestMode.Time, TimeSpan.FromSeconds(30), null, themes[0].Name));
         _harness.Input
             .Down().Enter()                 // time -> words
             .Down().Enter()                 // 10 -> 25 words
@@ -175,8 +177,8 @@ public class TypingTestFlowTests
 
         await _harness.RunAsync();
 
-        _harness.Preferences.Load().ShouldBe(new UserPreferences(TestMode.Words, null, 25, themes[3].Name));
-        _harness.History.GetAll().ShouldHaveSingleItem().ThemeName.ShouldBe(themes[3].Name);
+        _harness.Preferences.Load().ShouldBe(new UserPreferences(TestMode.Words, null, 25, themes[2].Name));
+        _harness.History.GetAll().ShouldHaveSingleItem().ThemeName.ShouldBe(themes[2].Name);
     }
 
     [Test]

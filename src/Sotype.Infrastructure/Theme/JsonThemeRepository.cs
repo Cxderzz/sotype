@@ -5,14 +5,24 @@ using ThemeObject = Sotype.Domain.Themes.Theme;
 
 namespace Sotype.Infrastructure.Theme;
 
-public class JsonThemeRepository(string? filePath = null) : IThemeRepository
+public class JsonThemeRepository : IThemeRepository
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
-    private readonly string _filePath = filePath ?? DefaultFilePath();
-    
-    public IReadOnlyList<ThemeObject> GetAll()
+    private readonly string _filePath;
+
+    public JsonThemeRepository(string? filePath = null)
     {
+        _filePath = filePath ?? DefaultFilePath();
+        InitialiseConfig();
+    }
+
+    private void InitialiseConfig()
+    {
+        var directory = Path.GetDirectoryName(_filePath);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+
         if (!File.Exists(_filePath))
             File.Create(_filePath).Dispose(); // Ensure the file exists before reading
         
@@ -20,7 +30,19 @@ public class JsonThemeRepository(string? filePath = null) : IThemeRepository
 
         var themes = DeserializeJson(json);
 
-        return themes ?? SeedAndGetDefaultThemes();
+        if (themes is not null)
+            return;
+
+        SeedAndGetDefaultThemes();
+    }
+
+    public IReadOnlyList<ThemeObject> GetAll()
+    {
+        var json = File.ReadAllText(_filePath);
+
+        var themes = DeserializeJson(json);
+
+        return themes ?? throw new JsonException("No theme configuration file found.");
     }
 
     private List<ThemeObject> SeedAndGetDefaultThemes()
@@ -86,4 +108,16 @@ public class JsonThemeRepository(string? filePath = null) : IThemeRepository
 
     private static string DefaultFilePath() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create), StringLookups.AppName, "themes.json");
+
+    public void SaveMultiple(IEnumerable<ThemeObject> themes)
+    {
+        var themesList = themes.ToList();
+        if (!themesList.Any()) return;
+
+        var existingThemes = GetAll();
+        var updatedThemes = existingThemes.Concat(themesList).Distinct().ToList();
+
+        var json = JsonSerializer.Serialize(updatedThemes, SerializerOptions);
+        File.WriteAllText(_filePath, json);
+    }
 }
