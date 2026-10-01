@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Sotype.Domain.Constants;
 using Sotype.Domain.Themes;
-using ThemeObject = Sotype.Domain.Themes.Theme;
 
 namespace Sotype.Infrastructure.Theme;
 
@@ -28,15 +27,16 @@ public class JsonThemeRepository : IThemeRepository
 
         var json = File.ReadAllText(_filePath);
 
-        var themes = DeserializeJson(json);
-
-        if (themes is not null)
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            SeedAndGetDefaultThemes();
             return;
+        }
 
-        SeedAndGetDefaultThemes();
+        _ = DeserializeJson(json) ?? throw new JsonException("Invalid theme configuration.");
     }
 
-    public IReadOnlyList<ThemeObject> GetAll()
+    public IReadOnlyList<ThemeRecord> GetAll()
     {
         var json = File.ReadAllText(_filePath);
 
@@ -45,7 +45,7 @@ public class JsonThemeRepository : IThemeRepository
         return themes ?? throw new JsonException("No theme configuration file found.");
     }
 
-    private List<ThemeObject> SeedAndGetDefaultThemes()
+    private List<ThemeRecord> SeedAndGetDefaultThemes()
     {
         var json = JsonSerializer.Serialize(GetDefaultThemes(), SerializerOptions);
 
@@ -54,11 +54,11 @@ public class JsonThemeRepository : IThemeRepository
         return DeserializeJson(json) ?? throw new JsonException("Failed to deserialize default themes after seeding.");
     }
 
-    private List<ThemeObject>? DeserializeJson(string json)
+    private List<ThemeRecord>? DeserializeJson(string json)
     {
         try
         {
-            return JsonSerializer.Deserialize<List<ThemeObject>>(json);
+            return JsonSerializer.Deserialize<List<ThemeRecord>>(json);
         }
         catch (JsonException)
         {
@@ -66,14 +66,14 @@ public class JsonThemeRepository : IThemeRepository
         }
     }
 
-    public ThemeObject GetByName(string name)
+    public ThemeRecord GetByName(string name)
     {
         return GetAll().FirstOrDefault(theme => theme.Name == name) ?? throw new KeyNotFoundException($"Theme with name '{name}' not found.");
     }
 
-    public static List<ThemeObject> GetDefaultThemes()
+    public static List<ThemeRecord> GetDefaultThemes()
     {
-        var serikaDark = new ThemeObject(
+        var serikaDark = new ThemeRecord(
             Name: "SerikaDark",
             Correct: "yellow",
             Incorrect: "red",
@@ -83,7 +83,7 @@ public class JsonThemeRepository : IThemeRepository
             CursorForeground: "grey11",
             CursorBackground: "yellow");
 
-        var dracula = new ThemeObject(
+        var dracula = new ThemeRecord(
             Name: "Dracula",
             Correct: "green",
             Incorrect: "red",
@@ -93,7 +93,7 @@ public class JsonThemeRepository : IThemeRepository
             CursorForeground: "grey11",
             CursorBackground: "mediumpurple2");
 
-        var ayuLight = new ThemeObject(
+        var ayuLight = new ThemeRecord(
             Name: "AyuLight",
             Correct: "green4",
             Incorrect: "red3",
@@ -109,13 +109,25 @@ public class JsonThemeRepository : IThemeRepository
     private static string DefaultFilePath() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create), StringLookups.AppName, "themes.json");
 
-    public void SaveMultiple(IEnumerable<ThemeObject> themes)
+    public void SaveMultiple(IEnumerable<ThemeRecord> themes)
     {
         var themesList = themes.ToList();
         if (!themesList.Any()) return;
 
         var existingThemes = GetAll();
         var updatedThemes = existingThemes.Concat(themesList).Distinct().ToList();
+
+        // check if any duplicate names exist
+        var duplicateGroups = updatedThemes
+            .GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .ToList();
+
+        if (duplicateGroups.Any())
+        {
+            var duplicates = string.Join(", ", duplicateGroups.Select(g => g.Key));
+            throw new InvalidOperationException($"Duplicate theme names found: {duplicates}");
+        }
 
         var json = JsonSerializer.Serialize(updatedThemes, SerializerOptions);
         File.WriteAllText(_filePath, json);

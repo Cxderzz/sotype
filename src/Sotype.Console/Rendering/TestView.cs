@@ -8,7 +8,7 @@ namespace Sotype.Cli.Rendering;
 /// <summary>
 /// Draws the test screen: progress header, words, and key hints.
 /// </summary>
-public sealed class TestView(Theme theme)
+public sealed class TestView(ThemeRecord themeRecord)
 {
     /// <param name="caretColumn">
     /// Null hides the caret.
@@ -16,7 +16,7 @@ public sealed class TestView(Theme theme)
     public IRenderable Render(TypingSession session, WordLayout layout, double? caretColumn)
     {
         var content = new Rows(
-            new Markup($"[{theme.Accent} bold]{Header(session)}[/]"),
+            new Markup($"[{themeRecord.Accent} bold]{Header(session)}[/]"),
             new Text(string.Empty),
             new Rows(RenderLines(layout, caretColumn)),
             new Text(string.Empty),
@@ -30,7 +30,7 @@ public sealed class TestView(Theme theme)
 
     private IEnumerable<IRenderable> RenderLines(WordLayout layout, double? caretColumn) =>
         layout.Lines.Select((line, row) => (IRenderable)new Markup(
-            LineMarkup.Render(line, theme, row == layout.CaretRow ? caretColumn : null)));
+            LineMarkup.Render(line, themeRecord, row == layout.CaretRow ? caretColumn : null)));
 
     /// <summary>
     /// Time remaining, or words committed.

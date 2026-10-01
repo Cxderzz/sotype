@@ -5,9 +5,9 @@ namespace Sotype.Domain.Themes;
 /// </summary>
 public interface IThemeRepository
 {
-    public IReadOnlyList<Theme> GetAll();
+    public IReadOnlyList<ThemeRecord> GetAll();
 
-    public Theme GetByName(string name);
+    public ThemeRecord GetByName(string name);
 
-    public void SaveMultiple(IEnumerable<Theme> themes);
+    public void SaveMultiple(IEnumerable<ThemeRecord> themes);
 }

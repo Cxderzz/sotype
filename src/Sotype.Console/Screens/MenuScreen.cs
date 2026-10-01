@@ -17,7 +17,7 @@ public static class MenuScreen
     private static readonly int[] DurationChoicesSeconds = [15, 30, 60, 120];
     private static readonly int[] WordCountChoices = [10, 25, 50, 100];
 
-    public static (TestConfiguration Configuration, Theme Theme) Show(IAnsiConsole console, UserPreferences preferences, IThemeRepository themeRepository)
+    public static (TestConfiguration Configuration, ThemeRecord Theme) Show(IAnsiConsole console, UserPreferences preferences, IThemeRepository themeRepository)
     {
         console.Clear();
         console.Write(new FigletText("sotype").Color(Color.Yellow));

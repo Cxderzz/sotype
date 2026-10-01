@@ -64,7 +64,7 @@ public sealed class SotypeApp(
         .Select(record => (double?)record.Wpm)
         .Max();
 
-    private UserPreferences Record(TestResult result, TestConfiguration configuration, Theme theme)
+    private UserPreferences Record(TestResult result, TestConfiguration configuration, ThemeRecord themeRecord)
     {
         historyRepository.Add(new RunRecord(
             Timestamp: timeProvider.GetLocalNow(),
@@ -78,10 +78,10 @@ public sealed class SotypeApp(
             IncorrectCharacters: result.IncorrectCharacters,
             ExtraCharacters: result.ExtraCharacters,
             MissedCharacters: result.MissedCharacters,
-            ThemeName: theme.Name));
+            ThemeName: themeRecord.Name));
 
         var preferences = new UserPreferences(
-            configuration.Mode, configuration.Duration, configuration.WordCount, theme.Name);
+            configuration.Mode, configuration.Duration, configuration.WordCount, themeRecord.Name);
 
         preferencesRepository.Save(preferences);
 

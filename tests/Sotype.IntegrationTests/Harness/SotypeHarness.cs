@@ -46,7 +46,7 @@ public sealed class SotypeHarness : IDisposable
         return this;
     }
 
-    public SotypeHarness WithThemes(IEnumerable<Theme> themes)
+    public SotypeHarness WithThemes(IEnumerable<ThemeRecord> themes)
     {
         Themes.SaveMultiple(themes);
         return this;

@@ -171,7 +171,7 @@ public class TypingTestFlowTests
         _harness.Input
             .Down().Enter()                 // time -> words
             .Down().Enter()                 // 10 -> 25 words
-            .Down(3).Enter()                // third theme
+            .Down(2).Enter()                // third theme
             .Type(string.Join(' ', Enumerable.Range(0, 25).Select(i => TenWords[i % TenWords.Length])))
             .Escape();
 

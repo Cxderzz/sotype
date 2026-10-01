@@ -30,13 +30,13 @@ public sealed class TestScreen
     private TimeSpan _lastInputAt;
     private InputEvent _outcome = InputEvent.None;
 
-    public TestScreen(IAnsiConsole console, TypingSession session, Theme theme, TimeProvider timeProvider)
+    public TestScreen(IAnsiConsole console, TypingSession session, ThemeRecord themeRecord, TimeProvider timeProvider)
     {
         _console = console;
         _session = session;
         _timeProvider = timeProvider;
         _startedAt = timeProvider.GetTimestamp();
-        _view = new TestView(theme);
+        _view = new TestView(themeRecord);
         _layout = Layout();
     }
 

@@ -4,6 +4,7 @@ using Sotype.Infrastructure.History;
 
 namespace Sotype.Infrastructure.Tests.History;
 
+[TestFixture]
 public class JsonHistoryRepositoryTests
 {
     private string _directory = null!;

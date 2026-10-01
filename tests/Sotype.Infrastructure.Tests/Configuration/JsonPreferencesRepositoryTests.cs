@@ -4,6 +4,7 @@ using Sotype.Infrastructure.Configuration;
 
 namespace Sotype.Infrastructure.Tests.Configuration;
 
+[TestFixture]
 public class JsonPreferencesRepositoryTests
 {
     private string _directory = null!;
