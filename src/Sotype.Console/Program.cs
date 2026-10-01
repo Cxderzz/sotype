@@ -1,4 +1,5 @@
 using Sotype.Cli.App;
+using Sotype.Cli.Screens;
 using Sotype.Cli.Terminal;
 using Sotype.Infrastructure.Configuration;
 using Sotype.Infrastructure.History;
@@ -10,7 +11,7 @@ namespace Sotype.Cli;
 
 public static class Program
 {
-    public static async Task Main()
+    public static async Task Main(string[] args)
     {
         try
         {
