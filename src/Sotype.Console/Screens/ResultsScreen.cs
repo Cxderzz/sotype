@@ -1,6 +1,6 @@
 using Sotype.Cli.Input;
-using Sotype.Cli.Theming;
 using Sotype.Domain;
+using Sotype.Domain.Themes;
 using Spectre.Console;
 
 namespace Sotype.Cli.Screens;
@@ -10,19 +10,19 @@ namespace Sotype.Cli.Screens;
 /// </summary>
 public static class ResultsScreen
 {
-    public static InputEvent Show(IAnsiConsole console, TestResult result, double? previousBestWpm, Theme theme)
+    public static InputEvent Show(IAnsiConsole console, TestResult result, double? previousBestWpm, ThemeRecord themeRecord)
     {
         console.Clear();
 
         var table = new Table().Border(TableBorder.Rounded).BorderColor(Color.Grey35);
         table.AddColumn("stat");
         table.AddColumn("value");
-        table.AddRow("wpm", $"[{theme.Accent} bold]{result.Wpm:0.#}[/]");
+        table.AddRow("wpm", $"[{themeRecord.Accent} bold]{result.Wpm:0.#}[/]");
         table.AddRow("raw wpm", $"{result.RawWpm:0.#}");
         table.AddRow("accuracy", $"{result.Accuracy:0.#}%");
-        table.AddRow("correct", $"[{theme.Correct}]{result.CorrectCharacters}[/]");
-        table.AddRow("incorrect", $"[{theme.Incorrect}]{result.IncorrectCharacters}[/]");
-        table.AddRow("extra", $"[{theme.Extra}]{result.ExtraCharacters}[/]");
+        table.AddRow("correct", $"[{themeRecord.Correct}]{result.CorrectCharacters}[/]");
+        table.AddRow("incorrect", $"[{themeRecord.Incorrect}]{result.IncorrectCharacters}[/]");
+        table.AddRow("extra", $"[{themeRecord.Extra}]{result.ExtraCharacters}[/]");
         table.AddRow("missed", $"{result.MissedCharacters}");
 
         console.Write(table);

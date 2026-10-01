@@ -1,9 +1,9 @@
 using Sotype.Cli.Input;
 using Sotype.Cli.Screens;
-using Sotype.Cli.Theming;
 using Sotype.Domain;
 using Sotype.Domain.Configuration;
 using Sotype.Domain.History;
+using Sotype.Domain.Themes;
 using Sotype.Domain.Words;
 using Spectre.Console;
 
@@ -17,7 +17,8 @@ public sealed class SotypeApp(
     TimeProvider timeProvider,
     IWordListProvider wordListProvider,
     IHistoryRepository historyRepository,
-    IPreferencesRepository preferencesRepository)
+    IPreferencesRepository preferencesRepository,
+    IThemeRepository themeRepository)
 {
     public async Task RunAsync()
     {
@@ -25,7 +26,7 @@ public sealed class SotypeApp(
 
         while (true)
         {
-            var (configuration, theme) = MenuScreen.Show(console, preferences);
+            var (configuration, theme) = MenuScreen.Show(console, preferences, themeRepository);
 
             while (true)
             {
@@ -63,7 +64,7 @@ public sealed class SotypeApp(
         .Select(record => (double?)record.Wpm)
         .Max();
 
-    private UserPreferences Record(TestResult result, TestConfiguration configuration, Theme theme)
+    private UserPreferences Record(TestResult result, TestConfiguration configuration, ThemeRecord themeRecord)
     {
         historyRepository.Add(new RunRecord(
             Timestamp: timeProvider.GetLocalNow(),
@@ -77,10 +78,10 @@ public sealed class SotypeApp(
             IncorrectCharacters: result.IncorrectCharacters,
             ExtraCharacters: result.ExtraCharacters,
             MissedCharacters: result.MissedCharacters,
-            ThemeName: theme.Name));
+            ThemeName: themeRecord.Name));
 
         var preferences = new UserPreferences(
-            configuration.Mode, configuration.Duration, configuration.WordCount, theme.Name);
+            configuration.Mode, configuration.Duration, configuration.WordCount, themeRecord.Name);
 
         preferencesRepository.Save(preferences);
 

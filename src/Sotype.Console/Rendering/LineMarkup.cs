@@ -1,6 +1,6 @@
 using System.Text;
-using Sotype.Cli.Theming;
 using Sotype.Domain;
+using Sotype.Domain.Themes;
 using Spectre.Console;
 
 namespace Sotype.Cli.Rendering;
@@ -13,19 +13,19 @@ public static class LineMarkup
     /// <param name="caretColumn">
     /// Cells from the start of the line, or null to leave the caret off.
     /// </param>
-    public static string Render(IReadOnlyList<Word> words, Theme theme, double? caretColumn = null)
+    public static string Render(IReadOnlyList<Word> words, ThemeRecord themeRecord, double? caretColumn = null)
     {
-        var cells = BuildCells(words, theme);
+        var cells = BuildCells(words, themeRecord);
 
         if (caretColumn is { } column)
-            PaintCaret(cells, column, theme);
+            PaintCaret(cells, column, themeRecord);
 
         return Serialise(cells);
     }
 
     private readonly record struct Cell(char Glyph, string Style);
 
-    private static List<Cell> BuildCells(IReadOnlyList<Word> words, Theme theme)
+    private static List<Cell> BuildCells(IReadOnlyList<Word> words, ThemeRecord themeRecord)
     {
         var cells = new List<Cell>();
 
@@ -34,14 +34,14 @@ public static class LineMarkup
             var word = words[index];
 
             for (var i = 0; i < word.Target.Length; i++)
-                cells.Add(new Cell(word.Target[i], i < word.Typed.Count ? StyleFor(word.Typed[i].State, theme) : theme.Pending));
+                cells.Add(new Cell(word.Target[i], i < word.Typed.Count ? StyleFor(word.Typed[i].State, themeRecord) : themeRecord.Pending));
 
             // Characters typed past the word's end have no target character to be shown in place of.
             for (var i = word.Target.Length; i < word.Typed.Count; i++)
-                cells.Add(new Cell(word.Typed[i].Character, theme.Extra));
+                cells.Add(new Cell(word.Typed[i].Character, themeRecord.Extra));
 
             if (index < words.Count - 1)
-                cells.Add(new Cell(' ', theme.Pending));
+                cells.Add(new Cell(' ', themeRecord.Pending));
         }
 
         return cells;
@@ -54,7 +54,7 @@ public static class LineMarkup
     /// the caret colour behind it. Inverting also resolves the terminal's background colour,
     /// which cannot be queried.
     /// </summary>
-    private static void PaintCaret(List<Cell> cells, double column, Theme theme)
+    private static void PaintCaret(List<Cell> cells, double column, ThemeRecord themeRecord)
     {
         var cell = (int)Math.Floor(column);
         var eighths = (int)Math.Round((column - cell) * CaretAnimator.SubCellSteps);
@@ -70,16 +70,16 @@ public static class LineMarkup
 
         // The caret can sit one cell past the line's last character, and its leading edge one past that.
         while (cells.Count <= cell + 1)
-            cells.Add(new Cell(' ', theme.Pending));
+            cells.Add(new Cell(' ', themeRecord.Pending));
 
         if (eighths == 0)
         {
-            cells[cell] = cells[cell] with { Style = $"{theme.CursorForeground} on {theme.CursorBackground}" };
+            cells[cell] = cells[cell] with { Style = $"{themeRecord.CursorForeground} on {themeRecord.CursorBackground}" };
             return;
         }
 
-        cells[cell] = new Cell(LeftBlock(eighths), $"invert {theme.CursorBackground}");
-        cells[cell + 1] = new Cell(LeftBlock(eighths), theme.CursorBackground);
+        cells[cell] = new Cell(LeftBlock(eighths), $"invert {themeRecord.CursorBackground}");
+        cells[cell + 1] = new Cell(LeftBlock(eighths), themeRecord.CursorBackground);
     }
 
     /// <summary>
@@ -113,11 +113,11 @@ public static class LineMarkup
         return markup.ToString();
     }
 
-    private static string StyleFor(CharacterState state, Theme theme) => state switch
+    private static string StyleFor(CharacterState state, ThemeRecord themeRecord) => state switch
     {
-        CharacterState.Correct => theme.Correct,
-        CharacterState.Incorrect => theme.Incorrect,
-        CharacterState.Extra => theme.Extra,
-        _ => theme.Pending
+        CharacterState.Correct => themeRecord.Correct,
+        CharacterState.Incorrect => themeRecord.Incorrect,
+        CharacterState.Extra => themeRecord.Extra,
+        _ => themeRecord.Pending
     };
 }

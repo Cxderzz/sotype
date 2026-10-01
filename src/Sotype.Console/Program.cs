@@ -2,6 +2,7 @@ using Sotype.Cli.App;
 using Sotype.Cli.Terminal;
 using Sotype.Infrastructure.Configuration;
 using Sotype.Infrastructure.History;
+using Sotype.Infrastructure.Theme;
 using Sotype.Infrastructure.Words;
 using Spectre.Console;
 
@@ -20,7 +21,8 @@ public static class Program
                 TimeProvider.System,
                 new EmbeddedWordListProvider(),
                 new JsonHistoryRepository(),
-                new JsonPreferencesRepository());
+                new JsonPreferencesRepository(),
+                new JsonThemeRepository());
 
             await app.RunAsync();
         }

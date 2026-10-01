@@ -23,5 +23,4 @@
     <ProjectReference Include="..\..\src\Sotype.Domain\Sotype.Domain.csproj" />
     <ProjectReference Include="..\..\src\Sotype.Infrastructure\Sotype.Infrastructure.csproj" />
   </ItemGroup>
-
 </Project>
