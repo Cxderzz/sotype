@@ -34,7 +34,7 @@ public sealed class SotypeHarness : IDisposable
     public JsonHistoryRepository History { get; }
 
     public JsonPreferencesRepository Preferences { get; }
-    
+
     public JsonThemeRepository Themes { get; }
 
     /// <summary>
