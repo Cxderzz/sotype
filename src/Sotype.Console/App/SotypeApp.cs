@@ -26,7 +26,7 @@ public sealed class SotypeApp(
 
         while (true)
         {
-            var (configuration, theme) = MenuScreen.Show(console, preferences, themeRepository);
+            var (configuration, theme) = MenuScreen.Show(console, preferences, themeRepository, historyRepository, timeProvider);
 
             while (true)
             {

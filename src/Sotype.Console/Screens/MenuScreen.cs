@@ -1,5 +1,7 @@
 using Sotype.Domain;
 using Sotype.Domain.Configuration;
+using Sotype.Domain.Constants;
+using Sotype.Domain.History;
 using Sotype.Domain.Themes;
 using Spectre.Console;
 
@@ -17,28 +19,51 @@ public static class MenuScreen
     private static readonly int[] DurationChoicesSeconds = [15, 30, 60, 120];
     private static readonly int[] WordCountChoices = [10, 25, 50, 100];
 
-    public static (TestConfiguration Configuration, ThemeRecord Theme) Show(IAnsiConsole console, UserPreferences preferences, IThemeRepository themeRepository)
+    public static (TestConfiguration Configuration, ThemeRecord Theme) Show(IAnsiConsole console, UserPreferences preferences, IThemeRepository themeRepository, IHistoryRepository historyRepository, TimeProvider timeProvider)
     {
         console.Clear();
-        console.Write(new FigletText("sotype").Color(Color.Yellow));
+        console.Write(new FigletText(StringLookups.AppName).Color(Color.Yellow));
 
-        var mode = console.Prompt(
-            new SelectionPrompt<TestMode>()
-                .Title("Select a [yellow]mode[/]")
-                .AddChoices(TestMode.Time, TestMode.Words)
-                .DefaultValue(preferences.Mode));
+        var screen = console.Prompt(
+            new SelectionPrompt<Navigation>()
+                .Title("Where would you like to go?")
+                .AddChoices(Navigation.Test, Navigation.Stats)
+                .UseConverter(nav => nav switch
+                {
+                    Navigation.Test => "Start a [yellow]test[/]",
+                    Navigation.Stats => "View [yellow]stats[/]",
+                    _ => throw new ArgumentOutOfRangeException(nameof(nav), nav, null)
+                })
+            );
 
-        var configuration = mode == TestMode.Time
-            ? TestConfiguration.ForDuration(TimeSpan.FromSeconds(PromptDuration(console, preferences)))
-            : TestConfiguration.ForWordCount(PromptWordCount(console, preferences));
+        if (screen == Navigation.Test)
+        {
+            var mode = console.Prompt(
+                new SelectionPrompt<TestMode>()
+                    .Title("Select a [yellow]mode[/]")
+                    .AddChoices(TestMode.Time, TestMode.Words)
+                    .DefaultValue(preferences.Mode));
 
-        var themeName = console.Prompt(
-            new SelectionPrompt<string>()
-                .Title("Select a [yellow]theme[/]")
-                .AddChoices(themeRepository.GetAll().Select(theme => theme.Name))
-                .DefaultValue(preferences.ThemeName));
+            var configuration = mode == TestMode.Time
+                ? TestConfiguration.ForDuration(TimeSpan.FromSeconds(PromptDuration(console, preferences)))
+                : TestConfiguration.ForWordCount(PromptWordCount(console, preferences));
 
-        return (configuration, themeRepository.GetByName(themeName));
+            var themeName = console.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("Select a [yellow]theme[/]")
+                    .AddChoices(themeRepository.GetAll().Select(theme => theme.Name))
+                    .DefaultValue(preferences.ThemeName));
+
+            return (configuration, themeRepository.GetByName(themeName));
+        }
+
+        if (screen == Navigation.Stats)
+        {
+            StatsScreen.Show(console, historyRepository.GetAll(), themeRepository.GetByName(preferences.ThemeName), timeProvider.GetUtcNow());
+            return Show(console, preferences, themeRepository, historyRepository, timeProvider);
+        }
+
+        throw new Exception("Unexpected route.");
     }
 
     private static int PromptDuration(IAnsiConsole console, UserPreferences preferences) => console.Prompt(
