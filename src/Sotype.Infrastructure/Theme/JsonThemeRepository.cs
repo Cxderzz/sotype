@@ -25,7 +25,7 @@ public class JsonThemeRepository : IThemeRepository
 
         if (!File.Exists(_filePath))
             File.Create(_filePath).Dispose(); // Ensure the file exists before reading
-        
+
         var json = File.ReadAllText(_filePath);
 
         var themes = DeserializeJson(json);

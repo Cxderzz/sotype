@@ -8,6 +8,6 @@ public interface IThemeRepository
     public IReadOnlyList<Theme> GetAll();
 
     public Theme GetByName(string name);
-    
+
     public void SaveMultiple(IEnumerable<Theme> themes);
 }

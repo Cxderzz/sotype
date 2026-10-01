@@ -166,7 +166,7 @@ public class TypingTestFlowTests
     public async Task Menu_ShouldSaveTheChosenSettingsAsPreferences()
     {
         var themes = JsonThemeRepository.GetDefaultThemes();
-        
+
         _harness.WithThemes(themes).WithPreferences(new UserPreferences(TestMode.Time, TimeSpan.FromSeconds(30), null, themes[0].Name));
         _harness.Input
             .Down().Enter()                 // time -> words
